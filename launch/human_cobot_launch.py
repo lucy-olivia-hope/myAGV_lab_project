@@ -1,20 +1,28 @@
 """
-launch/full_demo_launch.py
-Launches Nav2 + cobot_interface + mission_manager for the real-robot demo.
+launch/human_cobot_launch.py
+Phase 3 real-robot launch — Nav2 + human-in-the-loop mission manager.
 
-Required environment variable (set before launching):
+No cobot driver is needed: the human helper performs loading/unloading
+manually when prompted by the terminal.
+
+Required environment variables (set in ~/.bashrc):
+  export STUDENT_ID="yourlastname"
   export DEEPSEEK_API_KEY="sk-..."
+  export LANGFUSE_PUBLIC_KEY="pk-lf-..."
+  export LANGFUSE_SECRET_KEY="sk-lf-..."
+  export LANGFUSE_BASE_URL="https://cloud.langfuse.com"
 
 Launch arguments:
-  task        — Natural language task description (default: deliver_A fallback)
+  task         — Natural language task description
   use_fallback — "true" to skip the LLM and use hard-coded PDDL (default: false)
-  scenario    — Fallback scenario name (default: deliver_A)
+  scenario     — Fallback scenario (default: deliver_A)
+  use_astar    — "true" to use A* instead of BFS (default: false)
 
 Examples:
-  ros2 launch myagv_lab full_demo_launch.py \\
+  ros2 launch myagv_lab human_cobot_launch.py \\
       task:="Deliver package_A to the delivery area and return home."
 
-  ros2 launch myagv_lab full_demo_launch.py \\
+  ros2 launch myagv_lab human_cobot_launch.py \\
       use_fallback:=true scenario:=deliver_AB
 """
 from launch import LaunchDescription
@@ -49,6 +57,11 @@ def generate_launch_description():
         default_value="deliver_A",
         description="Fallback scenario: deliver_A | deliver_AB | recharge_then_deliver",
     )
+    astar_arg = DeclareLaunchArgument(
+        "use_astar",
+        default_value="false",
+        description="Use A* instead of BFS in pyperplan",
+    )
 
     # ── Nav2 ──────────────────────────────────────────────────────────────────
     nav2 = IncludeLaunchDescription(
@@ -62,28 +75,12 @@ def generate_launch_description():
         }.items(),
     )
 
-    # ── Cobot interface ───────────────────────────────────────────────────────
-    cobot = Node(
-        package="myagv_lab",
-        executable="cobot_interface",
-        output="screen",
-    )
-
-    # ── Mission manager — LLM mode (delayed 12 s for Nav2) ───────────────────
-    _env = {
-        "MYAGV_USE_SIM":        "0",
-        "DEEPSEEK_API_KEY":     os.environ.get("DEEPSEEK_API_KEY",     ""),
-        "LANGFUSE_PUBLIC_KEY":  os.environ.get("LANGFUSE_PUBLIC_KEY",  ""),
-        "LANGFUSE_SECRET_KEY":  os.environ.get("LANGFUSE_SECRET_KEY",  ""),
-        "LANGFUSE_BASE_URL":    os.environ.get("LANGFUSE_BASE_URL",    ""),
-        "STUDENT_ID":           os.environ.get("STUDENT_ID",           ""),
-    }
-
-    mission_llm = TimerAction(
-        period=12.0,
+    # ── Human cobot manager (LLM mode, delayed 10 s for Nav2) ─────────────────
+    manager_llm = TimerAction(
+        period=10.0,
         actions=[Node(
             package="myagv_lab",
-            executable="mission_manager",
+            executable="human_cobot_manager",
             output="screen",
             condition=IfCondition(
                 PythonExpression(["'", LaunchConfiguration("use_fallback"), "' != 'true'"])
@@ -93,16 +90,23 @@ def generate_launch_description():
                 "--task",     LaunchConfiguration("task"),
                 "--scenario", LaunchConfiguration("scenario"),
             ],
-            additional_env=_env,
+            additional_env={
+                "MYAGV_USE_SIM":        "0",
+                "DEEPSEEK_API_KEY":     os.environ.get("DEEPSEEK_API_KEY",     ""),
+                "LANGFUSE_PUBLIC_KEY":  os.environ.get("LANGFUSE_PUBLIC_KEY",  ""),
+                "LANGFUSE_SECRET_KEY":  os.environ.get("LANGFUSE_SECRET_KEY",  ""),
+                "LANGFUSE_BASE_URL":    os.environ.get("LANGFUSE_BASE_URL",    ""),
+                "STUDENT_ID":           os.environ.get("STUDENT_ID",           ""),
+            },
         )],
     )
 
-    # ── Mission manager — fallback / no-LLM mode ─────────────────────────────
-    mission_fallback = TimerAction(
-        period=12.0,
+    # ── Human cobot manager (fallback / no-LLM mode) ──────────────────────────
+    manager_fallback = TimerAction(
+        period=10.0,
         actions=[Node(
             package="myagv_lab",
-            executable="mission_manager",
+            executable="human_cobot_manager",
             output="screen",
             condition=IfCondition(LaunchConfiguration("use_fallback")),
             arguments=[
@@ -110,11 +114,13 @@ def generate_launch_description():
                 "--fallback",
                 "--scenario", LaunchConfiguration("scenario"),
             ],
-            additional_env={"MYAGV_USE_SIM": "0"},
+            additional_env={
+                "MYAGV_USE_SIM": "0",
+            },
         )],
     )
 
     return LaunchDescription([
-        task_arg, fallback_arg, scenario_arg,
-        nav2, cobot, mission_llm, mission_fallback,
+        task_arg, fallback_arg, scenario_arg, astar_arg,
+        nav2, manager_llm, manager_fallback,
     ])

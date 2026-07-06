@@ -1,7 +1,7 @@
 """
-myagv_lab/phase3_delivery/mission_viz.py
+myagv_lab/phase4_delivery/mission_viz.py
 =========================================
-Two-panel matplotlib visualiser for Phase 3 missions.
+Two-panel matplotlib visualiser for Phase 4 missions.
 
 Left panel  — live map: robot position, heading arrow, trail, waypoints,
                current navigation goal.
@@ -9,12 +9,12 @@ Right panel — task progress: pipeline stages, plan steps with live
                status badges, current status, cargo, and event timeline.
 
 Usage (standalone demo):
-  python3 -m myagv_lab.phase3_delivery.mission_viz
-  python3 -m myagv_lab.phase3_delivery.mission_viz --scenario deliver_AB
-  python3 -m myagv_lab.phase3_delivery.mission_viz --scenario recharge_then_deliver
+  python3 -m myagv_lab.phase4_delivery.mission_viz
+  python3 -m myagv_lab.phase4_delivery.mission_viz --scenario deliver_AB
+  python3 -m myagv_lab.phase4_delivery.mission_viz --scenario recharge_then_deliver
 
 Programmatic usage:
-  from myagv_lab.phase3_delivery.mission_viz import MissionVisualizer
+  from myagv_lab.phase4_delivery.mission_viz import MissionVisualizer
   viz = MissionVisualizer()
   ok  = viz.run("Deliver package_A and return home.",
                 use_llm=False, fallback_scenario="deliver_A")
@@ -50,14 +50,14 @@ from myagv_lab.sim_layer import (
     get_robot, get_cobot, get_map,
 )
 from myagv_lab.phase2_nav.nav_node import NavigationManager, WAYPOINTS
-from myagv_lab.phase3_delivery.pddl_planner.llm_translator import (
+from myagv_lab.phase4_delivery.pddl_planner.llm_translator import (
     natural_language_to_pddl, fallback_pddl,
 )
-from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import solve_pddl
-from myagv_lab.phase3_delivery.pddl_planner.primitive_executor import (
+from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import solve_pddl
+from myagv_lab.phase4_delivery.pddl_planner.primitive_executor import (
     PrimitiveExecutor, StepResult,
 )
-from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import PlanStep
+from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import PlanStep
 
 # ── Colour palette ─────────────────────────────────────────────────────────────
 _C = {
@@ -104,7 +104,7 @@ _STAGE_STYLE = {
 
 class MissionVisualizer:
     """
-    Two-panel live visualiser for Phase 3 delivery missions.
+    Two-panel live visualiser for Phase 4 delivery missions.
 
     Parameters
     ----------
@@ -146,7 +146,7 @@ class MissionVisualizer:
         plt.ion()
         self._fig = plt.figure(figsize=(16, 7), facecolor=_C["panel_bg"])
         self._fig.canvas.manager.set_window_title(
-            "Phase 3 — Mission Visualiser"
+            "Phase 4 — Mission Visualiser"
         )
         gs = GridSpec(1, 2, figure=self._fig,
                       width_ratios=[1.6, 1], wspace=0.04)
@@ -579,16 +579,16 @@ def main() -> None:
     os.environ.setdefault("MYAGV_USE_SIM", "1")
 
     parser = argparse.ArgumentParser(
-        description="Phase 3 mission visualiser demo"
+        description="Phase 4 mission visualiser demo"
     )
     parser.add_argument(
-        "--scenario", default="deliver_A",
+        "--scenario", default="recharge_then_deliver",
         choices=["deliver_A", "deliver_AB", "recharge_then_deliver"],
     )
     args = parser.parse_args()
 
     print(f"╔══════════════════════════════════════════╗")
-    print(f"║  Phase 3 — Mission Visualiser Demo       ║")
+    print(f"║  Phase 4 — Mission Visualiser Demo       ║")
     print(f"║  Scenario : {args.scenario:<30}║")
     print(f"╚══════════════════════════════════════════╝\n")
 

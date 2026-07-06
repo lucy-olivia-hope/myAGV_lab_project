@@ -1,9 +1,10 @@
 """
-myagv_lab/phase3_delivery/mission_manager.py
-=============================================
-Phase 3 — LLM-PDDL Mission Manager
+myagv_lab/phase3_human_cobot/human_cobot_manager.py
+====================================================
+Phase 3 — LLM-PDDL Mission Manager with Human-in-the-loop Cobot
 
-Top-level node that wires all four pipeline modules:
+Identical pipeline to Phase 4, but load-package / deliver-package
+PDDL actions pause for a human helper instead of commanding the cobot arm.
 
   Natural Language
        │
@@ -13,28 +14,27 @@ Top-level node that wires all four pipeline modules:
        ▼  [pddl_solver]
   list[PlanStep]
        │
-       ▼  [primitive_executor]
-  Physical robot motion (Nav2 + cobot)
+       ▼  [primitive_executor]  ← uses HumanCobot instead of SimCobot
+  AGV navigation  +  human prompts at loading/unloading steps
 
-Sim mode  : Full pipeline, simulated hardware.
-Real mode : Full pipeline, real ROS2 hardware.
-No-LLM    : Skip the API call, use a hard-coded fallback PDDL problem.
+When the cobot arm is introduced (Phase 4), the only change needed is
+to replace HumanCobot with the real CobotInterfaceNode.
 
 Usage
 -----
-  # Simulation with LLM translation
-  python3 -m myagv_lab.phase3_delivery.mission_manager --sim \\
-    --task "Deliver package_A to the delivery area and return home."
+  # Simulation — fallback PDDL (no API key)
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --sim --fallback
 
-  # Simulation without API key (fallback PDDL)
-  python3 -m myagv_lab.phase3_delivery.mission_manager --sim --fallback
+  # Simulation — LLM translation (requires DEEPSEEK_API_KEY + STUDENT_ID)
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --sim \\
+      --task "Deliver package_A to the delivery area and return home."
 
-  # Simulation with live two-panel visualisation
-  python3 -m myagv_lab.phase3_delivery.mission_manager --sim --fallback --viz
+  # Simulation with live visualisation
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --sim --fallback --viz
 
-  # Real robot
-  python3 -m myagv_lab.phase3_delivery.mission_manager --real \\
-    --task "Pick up package_A and deliver it."
+  # Real robot (no ROS2 cobot required — human helper takes that role)
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --real \\
+      --task "Pick up package_A and deliver it."
 """
 
 from __future__ import annotations
@@ -44,29 +44,30 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from myagv_lab.sim_layer import USE_SIM
-from myagv_lab.phase3_delivery.pddl_planner.llm_translator  import (
+from myagv_lab.phase4_delivery.pddl_planner.llm_translator import (
     natural_language_to_pddl, fallback_pddl,
 )
-from myagv_lab.phase3_delivery.pddl_planner.pddl_solver     import (
+from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import (
     solve_pddl, print_plan,
 )
-from myagv_lab.phase3_delivery.pddl_planner.primitive_executor import (
+from myagv_lab.phase4_delivery.pddl_planner.primitive_executor import (
     PrimitiveExecutor, StepResult,
 )
+from myagv_lab.phase3_human_cobot.human_cobot import HumanCobot
 
-log = logging.getLogger("mission_manager")
+log = logging.getLogger("human_cobot_manager")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  STATUS TRACKER  (collects all status events for a post-run summary)
+#  STATUS TRACKER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class StatusTracker:
+class _StatusTracker:
     def __init__(self):
         self.events: list[tuple[float, str]] = []
         self._start = time.monotonic()
@@ -87,18 +88,22 @@ class StatusTracker:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  MISSION MANAGER
+#  HUMAN MISSION MANAGER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class MissionManager:
+class HumanMissionManager:
     """
     Orchestrates the full NL → PDDL → Plan → Execution pipeline.
 
+    load-package / deliver-package steps pause for a human helper.
+
     Parameters
     ----------
-    use_llm     : bool — call the Claude API; False uses hard-coded PDDL
-    fallback_scenario : str — which hard-coded scenario to use if use_llm=False
-    use_astar   : bool — use A* search in pyperplan (vs. BFS)
+    use_llm           : bool — call the DeepSeek API; False uses hard-coded PDDL
+    fallback_scenario : str  — which hard-coded scenario to use if use_llm=False
+    use_astar         : bool — use A* in pyperplan (vs. BFS)
+    on_prompt         : callable(str) | None — replaces input() for testing
+                        (pass ``lambda msg: None`` to auto-confirm instantly)
     """
 
     def __init__(
@@ -106,15 +111,33 @@ class MissionManager:
         use_llm:           bool = True,
         fallback_scenario: str  = "deliver_A",
         use_astar:         bool = False,
+        on_prompt:  Optional[Callable[[str], None]] = None,
+        on_status:  Optional[Callable[[str], None]] = None,
     ):
         self._use_llm  = use_llm
         self._fallback = fallback_scenario
         self._astar    = use_astar
-        self._tracker  = StatusTracker()
+        self._tracker  = _StatusTracker()
 
-        # Executor is built here so it initialises ROS2 / sim early
+        # If caller wants status events, wrap the tracker so both receive them
+        if on_status is not None:
+            def _combined_status(s: str) -> None:
+                self._tracker.record(s)
+                on_status(s)
+            _status_cb = _combined_status
+        else:
+            _status_cb = self._tracker.record
+
+        # Build HumanCobot with the shared status callback
+        self._cobot = HumanCobot(
+            on_status=_status_cb,
+            on_prompt=on_prompt,
+        )
+
+        # Pass HumanCobot to the executor — it will be used instead of SimCobot
         self._executor = PrimitiveExecutor(
-            on_status=self._tracker.record,
+            cobot=self._cobot,
+            on_status=_status_cb,
             on_step=lambda step: log.info(
                 f"\n{'='*50}\n  Executing: {step.raw}\n{'='*50}"
             ),
@@ -125,7 +148,6 @@ class MissionManager:
     def run(self, task_description: str) -> bool:
         """
         Run the full pipeline for the given task description.
-
         Returns True if all steps succeeded, False otherwise.
         """
         self._banner()
@@ -180,12 +202,10 @@ class MissionManager:
 
         results = self._executor.execute_plan(plan)
 
-        # ── Summary ───────────────────────────────────────────────────────────
         success = all(r.success for r in results)
         failed  = [r for r in results if not r.success]
 
         self._tracker.print_summary()
-
         print()
         if success:
             print("  ✓  Mission COMPLETE — all steps succeeded.")
@@ -200,12 +220,13 @@ class MissionManager:
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _banner(self) -> None:
-        mode = "SIM" if USE_SIM else "REAL"
-        llm  = "LLM → PDDL" if self._use_llm else f"Fallback ({self._fallback})"
+        mode    = "SIM" if USE_SIM else "REAL"
+        llm     = "LLM → PDDL" if self._use_llm else f"Fallback ({self._fallback})"
         planner = "A*" if self._astar else "BFS"
         print()
         print("┌" + "═" * 58 + "┐")
-        print("│  myAGV Lab — Phase 3: LLM-PDDL Mission Manager" + " " * 10 + "│")
+        print("│  myAGV Lab — Phase 3: Human-in-the-loop Delivery" + " " * 9 + "│")
+        print("│  (Full LLM-PDDL pipeline; cobot replaced by human) " + " " * 6 + "│")
         print("│" + "─" * 58 + "│")
         print(f"│  Mode    : {mode:<47}│")
         print(f"│  Planner : {planner:<47}│")
@@ -226,31 +247,28 @@ def main() -> None:
     )
 
     parser = argparse.ArgumentParser(
-        description="Phase 3 — LLM-PDDL Mission Manager",
+        description="Phase 3 — Human-in-the-loop Mission Manager",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Sim with LLM
-  python3 -m myagv_lab.phase3_delivery.mission_manager --sim \\
-    --task "Deliver package_A to delivery_area and return home."
+  # Sim — fallback PDDL (no API key needed)
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --sim --fallback
 
-  # Sim without API key
-  python3 -m myagv_lab.phase3_delivery.mission_manager --sim --fallback
+  # Sim — with LLM translation
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --sim \\
+      --task "Deliver package_A to delivery_area and return home."
 
-  # Sim with live visualisation
-  python3 -m myagv_lab.phase3_delivery.mission_manager --sim --fallback --viz
+  # Sim — two packages + live visualisation
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --sim \\
+      --fallback --scenario deliver_AB --viz
 
-  # Sim with two packages + visualisation
-  python3 -m myagv_lab.phase3_delivery.mission_manager --sim \\
-    --fallback --scenario deliver_AB --viz
+  # Sim — recharge then deliver + live visualisation
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --sim \\
+      --fallback --scenario recharge_then_deliver --viz
 
-  # Sim with recharge + delivery + visualisation
-  python3 -m myagv_lab.phase3_delivery.mission_manager --sim \\
-    --fallback --scenario recharge_then_deliver --viz
-
-  # Real robot (no viz)
-  python3 -m myagv_lab.phase3_delivery.mission_manager --real \\
-    --task "Deliver package_A to delivery_area."
+  # Real robot (human helper acts as cobot)
+  python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager --real \\
+      --task "Deliver package_A to delivery_area and return home."
 """,
     )
 
@@ -258,7 +276,7 @@ Examples:
     mode_grp.add_argument("--sim",  action="store_true", default=True,
                           help="Simulation mode (default)")
     mode_grp.add_argument("--real", action="store_true",
-                          help="Real robot mode (ROS2 must be sourced)")
+                          help="Real robot mode (no cobot driver needed)")
 
     parser.add_argument("--task", type=str, default=None,
                         help="Natural language task description")
@@ -274,26 +292,22 @@ Examples:
 
     args = parser.parse_args()
 
-    # Determine task description
     if not args.fallback:
         if args.task is None:
-            args.task = input(
-                "Enter task description:\n> "
-            ).strip()
+            args.task = input("Enter task description:\n> ").strip()
         if not args.task:
             parser.error("Provide --task or --fallback")
 
     use_sim = not args.real
 
-    # Override env var so sim_layer picks up the right mode
     import os
     os.environ["MYAGV_USE_SIM"] = "1" if use_sim else "0"
 
     task_desc = args.task or f"[fallback scenario: {args.scenario}]"
 
     if args.viz and use_sim:
-        from myagv_lab.phase3_delivery.mission_viz import MissionVisualizer
-        viz     = MissionVisualizer()
+        from myagv_lab.phase3_human_cobot.human_cobot_viz import HumanCobotVisualizer
+        viz     = HumanCobotVisualizer()
         success = viz.run(
             task_description=task_desc,
             use_llm=not args.fallback,
@@ -305,7 +319,7 @@ Examples:
     else:
         if args.viz and not use_sim:
             log.warning("--viz is only supported in sim mode; running without visualisation.")
-        manager = MissionManager(
+        manager = HumanMissionManager(
             use_llm=not args.fallback,
             fallback_scenario=args.scenario,
             use_astar=args.astar,

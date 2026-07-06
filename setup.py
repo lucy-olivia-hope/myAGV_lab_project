@@ -22,21 +22,24 @@ setup(
         "imageio",
         "pyperplan",
         "openai",
+        "langfuse>=2.0",
         "matplotlib",
     ],
     entry_points={
         "console_scripts": [
             # Phase 1
-            "slam_node         = myagv_lab.phase1_slam.slam_node:main",
+            "slam_node              = myagv_lab.phase1_slam.slam_node:main",
             # Phase 2
-            "nav_node          = myagv_lab.phase2_nav.nav_node:main",
+            "nav_node               = myagv_lab.phase2_nav.nav_node:main",
             # Phase 3
-            "mission_manager   = myagv_lab.phase3_delivery.mission_manager:main",
-            "cobot_interface   = myagv_lab.phase3_delivery.cobot_interface:main",
+            "human_cobot_manager    = myagv_lab.phase3_human_cobot.human_cobot_manager:main",
+            # Phase 4
+            "mission_manager        = myagv_lab.phase4_delivery.mission_manager:main",
+            "cobot_interface        = myagv_lab.phase4_delivery.cobot_interface:main",
         ],
     },
     zip_safe=True,
     author="UCL Robotics & AI",
-    description="myAGV Summer School Lab — SLAM, Navigation, LLM-PDDL Delivery",
+    description="myAGV Summer School Lab — SLAM, Navigation, Human+LLM-PDDL Delivery",
     license="MIT",
 )

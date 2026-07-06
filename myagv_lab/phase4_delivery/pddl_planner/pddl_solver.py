@@ -1,7 +1,7 @@
 """
-myagv_lab/phase3_delivery/pddl_planner/pddl_solver.py
+myagv_lab/phase4_delivery/pddl_planner/pddl_solver.py
 ======================================================
-Module 2 of 4 in the Phase 3 pipeline.
+Module 2 of 4 in the Phase 4 pipeline.
 
 Parses PDDL strings with pyperplan, grounds all action schemas,
 and searches for a plan using BFS (default) or A*.
@@ -177,7 +177,7 @@ if __name__ == "__main__":
                         datefmt="%H:%M:%S")
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from myagv_lab.phase3_delivery.pddl_planner.llm_translator import fallback_pddl
+    from myagv_lab.phase4_delivery.pddl_planner.llm_translator import fallback_pddl
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--scenario", default="deliver_A",

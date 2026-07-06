@@ -1,7 +1,7 @@
 """
 tests/test_all_phases.py
 ========================
-Automated tests for all three lab phases.
+Automated tests for all four lab phases.
 
 All tests run in simulation mode (no ROS2, no API key required).
 
@@ -9,6 +9,7 @@ Run (activate venv first: source .venv/bin/activate):
   PYTHONPATH="" python3 -m pytest tests/test_all_phases.py -v
   PYTHONPATH="" python3 -m pytest tests/test_all_phases.py -v -k phase1
   PYTHONPATH="" python3 -m pytest tests/test_all_phases.py -v -k phase3
+  PYTHONPATH="" python3 -m pytest tests/test_all_phases.py -v -k phase4
   # Or use the provided script from the myagv_lab/ directory:
   ./run_tests.sh tests/test_all_phases.py -v
 """
@@ -241,27 +242,110 @@ class TestPhase2NavigationManager:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  PHASE 3 — PDDL PLANNER
+#  PHASE 3 — HUMAN-IN-THE-LOOP DELIVERY
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestPhase3Domain:
+class TestPhase3HumanCobot:
+    """
+    Phase 3: full LLM-PDDL pipeline with human helper acting as the cobot.
+    on_prompt=lambda msg: None auto-confirms so tests run non-interactively.
+    """
+
+    def _make_manager(self, scenario="deliver_A", **kwargs):
+        from myagv_lab.phase3_human_cobot.human_cobot_manager import HumanMissionManager
+        return HumanMissionManager(
+            use_llm=False,
+            fallback_scenario=scenario,
+            on_prompt=lambda msg: None,
+            **kwargs,
+        )
+
+    def test_deliver_A_succeeds(self):
+        ok = self._make_manager("deliver_A").run("[test: deliver_A]")
+        assert ok, "Phase 3 deliver_A should succeed"
+
+    def test_deliver_AB_succeeds(self):
+        ok = self._make_manager("deliver_AB").run("[test: deliver_AB]")
+        assert ok, "Phase 3 deliver_AB should succeed"
+
+    def test_recharge_then_deliver_succeeds(self):
+        ok = self._make_manager("recharge_then_deliver").run(
+            "[test: recharge_then_deliver]"
+        )
+        assert ok
+
+    def test_human_cobot_emits_waiting_events(self):
+        """WAITING_HUMAN and HUMAN_CONFIRMED must appear in the status log."""
+        from myagv_lab.phase3_human_cobot.human_cobot import HumanCobot
+        events: list[str] = []
+        cobot = HumanCobot(
+            on_status=events.append,
+            on_prompt=lambda msg: None,
+        )
+        from myagv_lab.sim_layer import SimRobot, Pose2D
+        robot = SimRobot(start=Pose2D(1.0, 1.0, 0.0))
+        cobot.load("package_A", robot)
+        assert "WAITING_HUMAN"   in events
+        assert "HUMAN_CONFIRMED" in events
+        assert "LOAD_COMPLETE"   in events
+
+    def test_human_cobot_unload(self):
+        from myagv_lab.phase3_human_cobot.human_cobot import HumanCobot
+        from myagv_lab.sim_layer import SimRobot, Pose2D
+        robot = SimRobot(start=Pose2D(1.0, 1.0, 0.0))
+        robot.pick_up("package_A")
+        cobot = HumanCobot(on_prompt=lambda msg: None)
+        ok = cobot.unload("package_A", robot)
+        assert ok
+        assert robot.carrying is None
+
+    def test_plan_contains_load_and_deliver(self):
+        """The PDDL plan for deliver_A must include load and deliver steps."""
+        from myagv_lab.phase4_delivery.pddl_planner.llm_translator import fallback_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import solve_pddl
+        domain, problem = fallback_pddl("deliver_A")
+        plan  = solve_pddl(domain, problem)
+        names = [s.name for s in plan]
+        assert "load-package"    in names
+        assert "deliver-package" in names
+
+    def test_status_log_includes_waiting(self):
+        """Mission log should contain WAITING_HUMAN events for each load/unload."""
+        from myagv_lab.phase3_human_cobot.human_cobot_manager import HumanMissionManager
+        events: list[str] = []
+        mgr = HumanMissionManager(
+            use_llm=False,
+            fallback_scenario="deliver_A",
+            on_prompt=lambda msg: None,
+            on_status=events.append,
+        )
+        mgr.run("[test: waiting_human events]")
+        assert "WAITING_HUMAN" in events, f"Events captured: {events}"
+        assert "HUMAN_CONFIRMED" in events
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  PHASE 4 — PDDL PLANNER
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestPhase4Domain:
     def test_domain_contains_required_actions(self):
-        from myagv_lab.phase3_delivery.pddl_planner.domain import DOMAIN_PDDL
+        from myagv_lab.phase4_delivery.pddl_planner.domain import DOMAIN_PDDL
         for action in ["navigate", "load-package", "deliver-package", "recharge"]:
             assert action in DOMAIN_PDDL, f"Action {action!r} missing from domain"
 
     def test_domain_contains_required_predicates(self):
-        from myagv_lab.phase3_delivery.pddl_planner.domain import DOMAIN_PDDL
+        from myagv_lab.phase4_delivery.pddl_planner.domain import DOMAIN_PDDL
         for pred in ["at", "package-at", "holding", "arm-at", "delivered"]:
             assert pred in DOMAIN_PDDL
 
 
-class TestPhase3Solver:
+class TestPhase4Solver:
     """Tests using fallback PDDL problems (no LLM API key required)."""
 
     def _solve(self, scenario: str):
-        from myagv_lab.phase3_delivery.pddl_planner.llm_translator import fallback_pddl
-        from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import solve_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.llm_translator import fallback_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import solve_pddl
         domain, problem = fallback_pddl(scenario)
         return solve_pddl(domain, problem)
 
@@ -302,7 +386,7 @@ class TestPhase3Solver:
         assert "recharge" in names
 
     def test_plan_step_parsing(self):
-        from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import PlanStep
+        from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import PlanStep
         raw  = "(navigate agv1 home loading_area)"
         step = PlanStep.from_raw(1, raw)
         assert step.name == "navigate"
@@ -311,25 +395,25 @@ class TestPhase3Solver:
         assert step.raw   == raw
 
     def test_invalid_pddl_raises_value_error(self):
-        from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import solve_pddl
-        from myagv_lab.phase3_delivery.pddl_planner.domain import DOMAIN_PDDL
+        from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import solve_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.domain import DOMAIN_PDDL
         bad_problem = "(define (problem bad) (:domain nonexistent-domain))"
         with pytest.raises((ValueError, RuntimeError, Exception)):
             solve_pddl(DOMAIN_PDDL, bad_problem)
 
     def test_astar_produces_valid_plan(self):
-        from myagv_lab.phase3_delivery.pddl_planner.llm_translator import fallback_pddl
-        from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import solve_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.llm_translator import fallback_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import solve_pddl
         domain, problem = fallback_pddl("deliver_A")
         plan = solve_pddl(domain, problem, use_astar=True)
         assert len(plan) > 0
 
 
-class TestPhase3Executor:
+class TestPhase4Executor:
     """Full executor tests with simulated robot and cobot."""
 
     def _make_executor(self):
-        from myagv_lab.phase3_delivery.pddl_planner.primitive_executor import PrimitiveExecutor
+        from myagv_lab.phase4_delivery.pddl_planner.primitive_executor import PrimitiveExecutor
         from myagv_lab.sim_layer import SimRobot, SimCobot, Pose2D
         from myagv_lab.phase2_nav.nav_node import WAYPOINTS
 
@@ -341,8 +425,8 @@ class TestPhase3Executor:
         return exec_, status_log
 
     def _get_plan(self, scenario: str):
-        from myagv_lab.phase3_delivery.pddl_planner.llm_translator import fallback_pddl
-        from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import solve_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.llm_translator import fallback_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import solve_pddl
         domain, problem = fallback_pddl(scenario)
         return solve_pddl(domain, problem)
 
@@ -361,8 +445,8 @@ class TestPhase3Executor:
             "\n".join(str(r) for r in results if not r.success)
 
     def test_unknown_action_returns_failure(self):
-        from myagv_lab.phase3_delivery.pddl_planner.primitive_executor import PrimitiveExecutor
-        from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import PlanStep
+        from myagv_lab.phase4_delivery.pddl_planner.primitive_executor import PrimitiveExecutor
+        from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import PlanStep
         exec_, _ = self._make_executor()
         bad_step = PlanStep(1, "fly-to-moon", ["agv1", "mars"], "(fly-to-moon agv1 mars)")
         result = exec_._dispatch(bad_step)
@@ -377,13 +461,13 @@ class TestPhase3Executor:
 
     def test_mission_manager_full_pipeline(self):
         """End-to-end: MissionManager.run() with fallback PDDL."""
-        from myagv_lab.phase3_delivery.mission_manager import MissionManager
+        from myagv_lab.phase4_delivery.mission_manager import MissionManager
         mgr = MissionManager(use_llm=False, fallback_scenario="deliver_A")
         ok  = mgr.run("[test: deliver_A fallback]")
         assert ok
 
 
-class TestPhase3FallbackScenarios:
+class TestPhase4FallbackScenarios:
     """Verify all three fallback scenarios produce non-trivial plans."""
 
     @pytest.mark.parametrize("scenario", [
@@ -392,8 +476,8 @@ class TestPhase3FallbackScenarios:
         "recharge_then_deliver",
     ])
     def test_scenario_produces_plan(self, scenario):
-        from myagv_lab.phase3_delivery.pddl_planner.llm_translator import fallback_pddl
-        from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import solve_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.llm_translator import fallback_pddl
+        from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import solve_pddl
         domain, problem = fallback_pddl(scenario)
         plan = solve_pddl(domain, problem)
         assert len(plan) >= 3, f"Plan for {scenario!r} is too short: {plan}"
@@ -404,7 +488,7 @@ class TestPhase3FallbackScenarios:
         "recharge_then_deliver",
     ])
     def test_scenario_executes_successfully(self, scenario):
-        from myagv_lab.phase3_delivery.mission_manager import MissionManager
+        from myagv_lab.phase4_delivery.mission_manager import MissionManager
         mgr = MissionManager(use_llm=False, fallback_scenario=scenario)
         ok  = mgr.run(f"[test: {scenario}]")
         assert ok, f"Mission failed for scenario {scenario!r}"
@@ -437,20 +521,26 @@ class TestIntegration:
         r     = nav.navigate("loading_area")
         assert r.success
 
-    def test_full_pipeline_three_phases(self):
+    def test_full_pipeline_four_phases(self):
         """
-        Run all three phases end-to-end in simulation.
+        Run all four phases end-to-end in simulation.
         """
-        import numpy as np
         from myagv_lab.phase1_slam.slam_node import SLAMNode
-        from myagv_lab.phase3_delivery.mission_manager import MissionManager
+        from myagv_lab.phase3_human_cobot.human_cobot_manager import HumanMissionManager
+        from myagv_lab.phase4_delivery.mission_manager import MissionManager
 
         # Phase 1 (abbreviated)
         slam = SLAMNode()
         for _ in range(3):
             slam.add_scan()
 
-        # Phase 3 (includes Phase 2 navigation internally)
+        # Phase 3 (human-in-the-loop, auto-confirm for testing)
+        p3 = HumanMissionManager(use_llm=False, fallback_scenario="deliver_A",
+                                 on_prompt=lambda msg: None)
+        ok3 = p3.run("[integration test p3]")
+        assert ok3, "Phase 3 integration failed"
+
+        # Phase 4 (includes Phase 2 navigation internally)
         mgr = MissionManager(use_llm=False, fallback_scenario="deliver_A")
-        ok  = mgr.run("[integration test]")
-        assert ok
+        ok4 = mgr.run("[integration test]")
+        assert ok4, "Phase 4 integration failed"

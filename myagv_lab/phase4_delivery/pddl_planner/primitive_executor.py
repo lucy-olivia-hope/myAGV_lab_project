@@ -1,7 +1,7 @@
 """
-myagv_lab/phase3_delivery/pddl_planner/primitive_executor.py
+myagv_lab/phase4_delivery/pddl_planner/primitive_executor.py
 ============================================================
-Module 3 of 4 in the Phase 3 pipeline.
+Module 3 of 4 in the Phase 4 pipeline.
 
 The grounding layer: maps each abstract PDDL action string
 to the correct robot primitive call.
@@ -38,7 +38,7 @@ from myagv_lab.sim_layer import (
     get_robot, get_cobot, get_map,
 )
 from myagv_lab.phase2_nav.nav_node import NavigationManager, WAYPOINTS
-from myagv_lab.phase3_delivery.pddl_planner.pddl_solver import PlanStep
+from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import PlanStep
 
 log = logging.getLogger("primitive_executor")
 
@@ -96,9 +96,13 @@ class PrimitiveExecutor:
         else:
             # Real mode: NavigationManager handles ROS2 internally
             self._robot = None
-            self._cobot = None        # real cobot driven via ROS2 topics
             self._nav   = NavigationManager(on_status=self._on_status)
-            self._init_real_cobot()
+            if cobot is not None:
+                # Custom cobot provided (e.g. HumanCobot for Phase 3)
+                self._cobot = cobot
+            else:
+                self._cobot = None   # driven via ROS2 /cobot_command topics
+                self._init_real_cobot()
 
     # ── Real-robot cobot setup (ROS2 publisher) ───────────────────────────────
 
@@ -210,7 +214,7 @@ class PrimitiveExecutor:
                    package: str, location: str) -> StepResult:
         self._on_status(f"LOADING:{package}")
 
-        if USE_SIM:
+        if USE_SIM or self._cobot is not None:
             ok = self._cobot.load(package, self._robot)
             return StepResult(step, ok,
                               "Loaded" if ok else "Load failed")
@@ -222,7 +226,7 @@ class PrimitiveExecutor:
                       package: str, location: str) -> StepResult:
         self._on_status(f"DELIVERING:{package}@{location}")
 
-        if USE_SIM:
+        if USE_SIM or self._cobot is not None:
             ok = self._cobot.unload(package, self._robot)
             return StepResult(step, ok,
                               "Delivered" if ok else "Unload failed")

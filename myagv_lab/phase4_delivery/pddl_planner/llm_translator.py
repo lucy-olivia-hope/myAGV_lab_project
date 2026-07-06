@@ -1,7 +1,7 @@
 """
-myagv_lab/phase3_delivery/pddl_planner/llm_translator.py
+myagv_lab/phase4_delivery/pddl_planner/llm_translator.py
 =========================================================
-Module 1 of 4 in the Phase 3 pipeline.
+Module 1 of 4 in the Phase 4 pipeline.
 
 Translates a natural language task description into a PDDL problem
 file by calling the DeepSeek API (deepseek-chat).
@@ -16,7 +16,6 @@ Pipeline position
 
 from __future__ import annotations
 
-import os
 import re
 import logging
 from pathlib import Path
@@ -26,7 +25,7 @@ log = logging.getLogger("llm_translator")
 # ── Domain import ─────────────────────────────────────────────────────────────
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from myagv_lab.phase3_delivery.pddl_planner.domain import (
+from myagv_lab.phase4_delivery.pddl_planner.domain import (
     DOMAIN_PDDL, ACTION_DESCRIPTIONS, KNOWN_LOCATIONS, FIXED_OBJECTS,
 )
 
@@ -103,20 +102,14 @@ def natural_language_to_pddl(task_description: str) -> tuple[str, str]:
     EnvironmentError
         If DEEPSEEK_API_KEY is not set.
     """
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    if not api_key:
-        raise EnvironmentError(
-            "DEEPSEEK_API_KEY is not set.\n"
-            "  export DEEPSEEK_API_KEY='sk-...'\n"
-            "  Or use --use-fallback to skip the LLM step."
-        )
-
-    from openai import OpenAI
+    from langfuse_client.client import get_llm_client
 
     log.info(f"[LLM] Task: {task_description!r}")
-    log.info("[LLM] Calling DeepSeek API (deepseek-chat) …")
+    log.info("[LLM] Calling DeepSeek API via Langfuse (deepseek-chat) …")
 
-    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+    client, user_id = get_llm_client()
+    log.info(f"[LLM] Student ID: {user_id!r}")
+
     message = client.chat.completions.create(
         model="deepseek-chat",
         max_tokens=1024,
@@ -124,6 +117,7 @@ def natural_language_to_pddl(task_description: str) -> tuple[str, str]:
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": task_description},
         ],
+        user=user_id,
     )
 
     raw = message.choices[0].message.content.strip()

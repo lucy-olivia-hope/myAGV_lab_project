@@ -2,7 +2,7 @@
 <package format="3">
   <name>myagv_lab</name>
   <version>1.0.0</version>
-  <description>myAGV Summer School Lab: SLAM, Navigation, LLM-PDDL Delivery</description>
+  <description>myAGV Summer School Lab: SLAM, Navigation, Human-in-the-loop Delivery, LLM-PDDL Delivery</description>
   <maintainer email="robotics@ucl.ac.uk">UCL Robotics and AI</maintainer>
   <license>MIT</license>
 

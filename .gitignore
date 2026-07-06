@@ -7,8 +7,9 @@ __pycache__/
 *.pyo
 .pytest_cache/
 
-# Secrets
+# Secrets — .env is ignored; .env.example is tracked (no real keys)
 ../.env
+.env
 
 # IDE
 .vscode/
