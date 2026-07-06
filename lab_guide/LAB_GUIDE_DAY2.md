@@ -50,10 +50,10 @@ result = nav.navigate("delivery_area")   # returns NavResult(success, message)
 
 ### 1.2 The Waypoint Registry
 
-Open [phase2_nav/nav_node.py](myagv_lab/phase2_nav/nav_node.py) and find `WAYPOINTS` (around line 53):
+Open [phase2_nav/nav_node.py](myagv_lab/phase2_nav/nav_node.py) and find `SIM_WAYPOINTS`:
 
 ```python
-WAYPOINTS: dict[str, Pose2D] = {
+SIM_WAYPOINTS: dict[str, Pose2D] = {
     "home":            Pose2D(0.4, 0.6,  0.0),
     "loading_area":    Pose2D(0.8, 0.4,  0.0),
     "delivery_area":   Pose2D(2.0, 0.4,  math.radians(90)),
@@ -64,6 +64,11 @@ WAYPOINTS: dict[str, Pose2D] = {
 
 `Pose2D(x, y, yaw)` — `x` and `y` are in metres on the map; `yaw` is the robot's
 facing direction in radians (0 = east, π/2 = north, π = west).
+
+There is also a `REAL_WAYPOINTS` dict right below it, with the same names but
+coordinates meant for the real lab (see [DAY2_REAL_ROBOT_GUIDE.md](DAY2_REAL_ROBOT_GUIDE.md)).
+The module picks whichever one applies as `WAYPOINTS`, based on `MYAGV_USE_SIM` —
+your sim exercises below only ever touch `SIM_WAYPOINTS`.
 
 ### 1.3 Interactive Demo
 
@@ -120,7 +125,7 @@ Answer in your lab notebook:
 
 **Exercise 2.2 — Add a new waypoint**
 
-Add `"inspection_area"` to `WAYPOINTS` in [phase2_nav/nav_node.py](myagv_lab/phase2_nav/nav_node.py):
+Add `"inspection_area"` to `SIM_WAYPOINTS` in [phase2_nav/nav_node.py](myagv_lab/phase2_nav/nav_node.py):
 
 ```python
 "inspection_area": Pose2D(3.5, 2.0, 0.0),
@@ -433,7 +438,7 @@ that prints `"Inspecting …"` when the action fires.
 
 | Concept | Where to find it |
 |---------|-----------------|
-| Waypoint coordinates | `phase2_nav/nav_node.py` → `WAYPOINTS` |
+| Waypoint coordinates | `phase2_nav/nav_node.py` → `SIM_WAYPOINTS` / `REAL_WAYPOINTS` |
 | Navigation API | `phase2_nav/nav_node.py` → `NavigationManager` |
 | Live nav visualiser | `phase2_nav/nav_viz.py` → `NavVisualizer` |
 | PDDL domain (all actions) | `phase4_delivery/pddl_planner/domain.py` |

@@ -63,21 +63,30 @@ New terminal → enter container → source, then:
 ros2 launch myagv_lab nav2_launch.py
 ```
 
-### Step 5 — Activate map server and localisation (Window 3)
+### Step 5 — Wait for map server and localisation to come up
 
-Nav2 nodes start unconfigured on Galactic. Activate them manually:
+`nav2_launch.py` passes `autostart:=true` and bakes the map path directly
+into `map_server`'s `yaml_filename` param, so `map_server` and `amcl`
+configure and activate themselves — no manual lifecycle commands needed.
 
+Just wait until Window 2 shows:
+```
+Managed nodes are active
+```
+
+If it never reaches that state, check the lifecycle manually:
+```bash
+ros2 lifecycle get /map_server
+ros2 lifecycle get /amcl
+```
+Both should read `active`. If either is stuck in `unconfigured`, activate it
+by hand as a fallback:
 ```bash
 ros2 param set /map_server yaml_filename /ws/src/myAGV_lab_project/maps/lab_map.yaml
 ros2 lifecycle set /map_server configure
 ros2 lifecycle set /map_server activate
 ros2 lifecycle set /amcl configure
 ros2 lifecycle set /amcl activate
-```
-
-Wait until Window 2 shows:
-```
-Managed nodes are active
 ```
 
 ### Step 6 — Open RViz2 on your laptop
@@ -154,7 +163,8 @@ To use the named waypoints defined in the code:
 
 1. In RViz2, use **"Publish Point"** to hover over key locations. The `x, y`
    coordinates appear at the bottom of the window — record them.
-2. Update `WAYPOINTS` in `myagv_lab/phase2_nav/nav_node.py` with the real values.
+2. Update `REAL_WAYPOINTS` in `myagv_lab/phase2_nav/nav_node.py` with the real
+   values (leave `SIM_WAYPOINTS` untouched — the sim tests depend on it).
 3. Rebuild and run:
 ```bash
 cd /ws && colcon build --packages-select myagv_lab && source install/setup.bash
@@ -176,8 +186,9 @@ instead of commanding a cobot arm.
 ### Prepare the lab
 
 - Place **`package_A`** at the physical loading area.
-- Confirm the map waypoint coordinates in `nav_node.py` match the real lab layout
-  (use the "Publish Point" method from Phase 2 step 9 to read coordinates if needed).
+- Confirm `REAL_WAYPOINTS` in `nav_node.py` match the real lab layout
+  (use the "Publish Point" method from the Phase 2 "Named waypoints" section to
+  read coordinates if needed).
 
 ### Run with fallback PDDL (no API key needed)
 
@@ -259,7 +270,7 @@ python3 -m myagv_lab.phase3_human_cobot.human_cobot_manager \
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | "map does not exist" / transform timeout | AMCL not active, or no initial pose set | Complete Step 5 and Step 7 |
-| `map_server` "Transitioning failed" | Map path was not set before `configure` | Run `ros2 param set /map_server yaml_filename ...` first |
+| `map_server` "Transitioning failed" | Map path was not set before `configure` (shouldn't happen — `nav2_launch.py` bakes it in — but can occur if you're launching `bringup_launch.py` directly) | Run `ros2 param set /map_server yaml_filename ...` then `configure`/`activate` by hand |
 | Localisation jumps by metres | Wrong initial pose | Re-set the 2D Pose Estimate in RViz2 |
 | "Robot is out of bounds of the costmap" | Initial pose is outside the map | Re-set to the robot's real position |
 | Navigation goal fails / robot aborts | Goal is inside an obstacle or too close to a wall | Pick a clearer spot |

@@ -10,7 +10,7 @@ perspective.
 
 Sim-to-real transition:
   - Set  USE_SIM = False  (or env var MYAGV_USE_SIM=0)
-  - Install ROS2 Humble + nav2 on the robot
+  - Install ROS2 Galactic + nav2 on the robot
   - All other code stays exactly the same
 
 Architecture:

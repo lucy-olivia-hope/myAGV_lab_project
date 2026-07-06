@@ -45,18 +45,32 @@ log = logging.getLogger("phase2_nav")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  WAYPOINT REGISTRY  (single source of truth for both sim and real)
+#  WAYPOINT REGISTRY
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Real-robot coordinates are in the saved map frame (metres).
-# Update these after running Phase 1 and reading coordinates from RViz2.
-WAYPOINTS: dict[str, Pose2D] = {
+# Sim-mode coordinates are tuned to the ASCII room in sim_layer.py
+# (_DEFAULT_MAP_ASCII) — do not change these, tests assert against them.
+SIM_WAYPOINTS: dict[str, Pose2D] = {
     "home":            Pose2D(0.4, 0.6,  0.0),
     "loading_area":    Pose2D(0.8, 0.4,  0.0),
     "delivery_area":   Pose2D(2.0, 0.4,  math.radians(90)),
     "storage_area":    Pose2D(5.0, 0.4,  math.radians(180)),
     "charger_station": Pose2D(7.0, 0.4,  math.radians(270)),
 }
+
+# TODO(lab): these are still the sim placeholders. Before running
+# named-waypoint navigation on the real robot, drive/carry the robot to
+# each location, read its pose off the "2D Pose Estimate"/TF display in
+# RViz2 (map frame, metres), and replace the values below.
+REAL_WAYPOINTS: dict[str, Pose2D] = {
+    "home":            Pose2D(0.4, 0.6,  0.0),
+    "loading_area":    Pose2D(0.8, 0.4,  0.0),
+    "delivery_area":   Pose2D(2.0, 0.4,  math.radians(90)),
+    "storage_area":    Pose2D(5.0, 0.4,  math.radians(180)),
+    "charger_station": Pose2D(7.0, 0.4,  math.radians(270)),
+}
+
+WAYPOINTS: dict[str, Pose2D] = SIM_WAYPOINTS if USE_SIM else REAL_WAYPOINTS
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -201,6 +215,14 @@ class NavigationManager:
         log.info("[NavManager] Waiting for Nav2 action server …")
         self._client.wait_for_server()
         log.info("[NavManager] Nav2 ready.")
+
+        if REAL_WAYPOINTS == SIM_WAYPOINTS:
+            log.warning(
+                "[NavManager] REAL_WAYPOINTS in nav_node.py still holds the "
+                "sim placeholder coordinates — named-waypoint navigation "
+                "will send the robot to the wrong spots until you measure "
+                "the real map coordinates in RViz2 and update them."
+            )
 
     # ── Core API ──────────────────────────────────────────────────────────────
 

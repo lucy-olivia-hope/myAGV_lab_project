@@ -13,5 +13,5 @@ pytest>=7.0
 pytest-timeout>=2.1
 
 # Optional: for ROS2 real-robot mode, install separately:
-#   sudo apt install ros-humble-navigation2 ros-humble-nav2-bringup
-#   sudo apt install ros-humble-slam-toolbox
+#   sudo apt install ros-galactic-navigation2 ros-galactic-nav2-bringup
+#   sudo apt install ros-galactic-slam-toolbox

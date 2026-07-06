@@ -1,6 +1,6 @@
 """
 launch/slam_launch.py
-Real-robot SLAM launch (ROS2 Humble).
+Real-robot SLAM launch (ROS2 Galactic).
 Not used in simulation — Phase 1 sim uses OccupancyGrid directly.
 """
 from launch import LaunchDescription

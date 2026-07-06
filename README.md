@@ -25,7 +25,7 @@ myagv_lab/
 │   ├── phase1_slam/
 │   │   └── slam_node.py                ← Occupancy-grid SLAM + exploration
 │   ├── phase2_nav/
-│   │   ├── nav_node.py                 ← NavigationManager + WAYPOINTS (sim + Nav2)
+│   │   ├── nav_node.py                 ← NavigationManager + SIM_WAYPOINTS/REAL_WAYPOINTS (sim + Nav2)
 │   │   └── nav_viz.py                  ← Live matplotlib map + trail visualiser
 │   ├── phase3_human_cobot/
 │   │   ├── human_cobot.py              ← HumanCobot — drop-in for the cobot arm
@@ -233,8 +233,9 @@ Quick reference:
 | 6 | Phase 3: `ros2 launch myagv_lab human_cobot_launch.py use_fallback:=true` |
 | 7 | Phase 4: `ros2 launch myagv_lab full_demo_launch.py use_fallback:=true` |
 
-Update `WAYPOINTS` in `phase2_nav/nav_node.py` with the real lab coordinates
-(read from RViz2 using "Publish Point" after Phase 1).
+Update `REAL_WAYPOINTS` in `phase2_nav/nav_node.py` with the real lab coordinates
+(read from RViz2 using "Publish Point" after Phase 1) — leave `SIM_WAYPOINTS`
+untouched, since the sim tests depend on it.
 
 ---
 
@@ -256,7 +257,7 @@ Update `WAYPOINTS` in `phase2_nav/nav_node.py` with the real lab coordinates
 ## Student Exercises
 
 **Phase 2**
-1. Add a new waypoint `"inspection_area"` to `WAYPOINTS` in `nav_node.py` and navigate to it.
+1. Add a new waypoint `"inspection_area"` to `SIM_WAYPOINTS` in `nav_node.py` and navigate to it.
 2. Write a scripted route that visits 4 waypoints in sequence.
 3. Test graceful failure: try navigating to an unknown location and observe the error.
 
@@ -269,7 +270,7 @@ Update `WAYPOINTS` in `phase2_nav/nav_node.py` with the real lab coordinates
 **Phase 4**
 1. **Trace the pipeline** — add `print()` between each stage; observe data transformations.
 2. **Modify the task** — try different natural language descriptions; observe how the PDDL problem changes.
-3. **Add a new location** — add `"inspection_area"` to `WAYPOINTS` and the PDDL domain.
+3. **Add a new location** — add `"inspection_area"` to `SIM_WAYPOINTS` and the PDDL domain.
 4. **Extend the domain** — add a new `inspect` action to `domain.py` and a handler in `primitive_executor.py`.
 5. **Failure handling** — make `navigate()` retry once on failure.
 6. **Real deployment** — follow the Sim-to-Real Transition table above.

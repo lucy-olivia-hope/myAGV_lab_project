@@ -1,6 +1,10 @@
 # config/nav2_params.yaml
 # Nav2 configuration tuned for myAGV (mecanum drive, indoor lab)
 
+map_server:
+  ros__parameters:
+    yaml_filename: ""   # overridden at launch time by nav2_launch.py (see RewrittenYaml)
+
 amcl:
   ros__parameters:
     use_sim_time: false
@@ -61,3 +65,13 @@ recoveries_server:
       plugin: "nav2_recoveries/BackUp"
     wait:
       plugin: "nav2_recoveries/Wait"
+
+waypoint_follower:
+  ros__parameters:
+    loop_rate: 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: true
+      waypoint_pause_duration: 200
