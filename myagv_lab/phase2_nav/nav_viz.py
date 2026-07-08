@@ -297,7 +297,7 @@ def main() -> None:
     nav   = NavigationManager(robot=robot)
     viz   = NavVisualizer(get_map(), WAYPOINTS)
 
-    sequence = ["loading_area", "delivery_area", "storage_area", "home"]
+    sequence = ["loading_area", "inspection_area", "delivery_area", "home"]
 
     print("╔══════════════════════════════════════════╗")
     print("║  Phase 2 — Navigation Visualiser Demo    ║")

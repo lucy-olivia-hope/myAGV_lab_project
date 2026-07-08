@@ -208,7 +208,7 @@ class SimRobot:
 
     # ── Navigation ────────────────────────────────────────────────────────────
 
-    def navigate_to(self, goal: Pose2D, timeout: float = 60.0) -> NavResult:
+    def navigate_to(self, goal: Pose2D, timeout: float = 90.0) -> NavResult:
         """
         Move the robot from its current pose to goal using a simple
         proportional controller.  Prints progress every 0.5 s.

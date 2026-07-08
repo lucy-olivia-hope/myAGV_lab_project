@@ -28,6 +28,7 @@ DOMAIN_PDDL = """\
     (delivered    ?p - package)                 ;; package has been delivered
     (charged      ?r - robot)                   ;; robot battery is full
     (charger-at   ?l - location)               ;; charger exists at location
+    (inspected    ?l - location)               ;; location has been inspected
   )
 
   ;; ── Actions ────────────────────────────────────────────────────────────────
@@ -83,6 +84,17 @@ DOMAIN_PDDL = """\
       (charged ?r)
     )
   )
+
+  ;; Inspect a location with the AGV
+  (:action inspect
+    :parameters (?r - robot ?l - location)
+    :precondition (and
+      (at ?r ?l)
+    )
+    :effect (and
+      (inspected ?l)
+    )
+  )
 )
 """
 
@@ -92,6 +104,7 @@ ACTION_DESCRIPTIONS = {
     "load-package":    "Have the cobot arm (cobot1) load a package onto the AGV at the loading_area.",
     "deliver-package": "Have the AGV deposit the package it is carrying at a destination location.",
     "recharge":        "Charge the AGV at a charger_station location.",
+    "inspect":         "Inspect a location after the AGV has navigated there.",
 }
 
 # All valid location names the LLM may use

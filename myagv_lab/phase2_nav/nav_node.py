@@ -54,6 +54,7 @@ SIM_WAYPOINTS: dict[str, Pose2D] = {
     "home":            Pose2D(0.4, 0.6,  0.0),
     "loading_area":    Pose2D(0.8, 0.4,  0.0),
     "delivery_area":   Pose2D(2.0, 0.4,  math.radians(90)),
+    "inspection_area": Pose2D(3.5, 0.4,  0.0),
     "storage_area":    Pose2D(5.0, 0.4,  math.radians(180)),
     "charger_station": Pose2D(7.0, 0.4,  math.radians(270)),
 }
@@ -229,6 +230,7 @@ class NavigationManager:
     def navigate(self, location: str) -> NavResult:
         """Navigate to a named waypoint."""
         if location not in WAYPOINTS:
+            print(f"WARNING: Unknown location {location!r}. Known locations: {list(WAYPOINTS.keys())}")
             return NavResult(False,
                              f"Unknown location {location!r}. "
                              f"Known: {list(WAYPOINTS.keys())}")
@@ -365,7 +367,7 @@ def run_scripted_demo() -> None:
     robot = get_robot(WAYPOINTS["home"])
     nav   = NavigationManager(robot=robot)
 
-    sequence = ["loading_area", "delivery_area", "home"]
+    sequence = ["loading_area", "inspection_area", "delivery_area", "home"]
     for dest in sequence:
         result = nav.navigate(dest)
         log.info(f"  {dest}: {'OK' if result.success else 'FAILED'}")

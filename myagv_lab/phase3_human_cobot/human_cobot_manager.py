@@ -175,6 +175,9 @@ class HumanMissionManager:
 
         self._tracker.record("PDDL_GENERATED")
         log.info("[Stage 1] PDDL generated successfully.")
+        print("\n=== RAW PDDL PROBLEM ===")
+        print(problem_pddl)
+        print("=== END RAW PDDL PROBLEM ===\n")
 
         # ── Stage 2: PDDL → Plan ─────────────────────────────────────────────
         log.info("")
@@ -193,6 +196,9 @@ class HumanMissionManager:
 
         print_plan(plan, title=f"Plan for: {task_description[:50]}")
         self._tracker.record(f"PLAN_READY({len(plan)}_steps)")
+        print("\n=== PLAN LIST ===")
+        print([step.raw for step in plan])
+        print("=== END PLAN LIST ===\n")
 
         # ── Stage 3: Execution ────────────────────────────────────────────────
         log.info("")

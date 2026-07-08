@@ -17,6 +17,7 @@ Dispatch table
   load-package        →  cobot.load(package, agv)
   deliver-package     →  cobot.unload(package, agv)
   recharge            →  sim: sleep; real: ros2 service call
+  inspect             →  print inspection status
 
 Pipeline position
 -----------------
@@ -193,6 +194,13 @@ class PrimitiveExecutor:
             _robot, location = args
             return self._exec_recharge(step, location)
 
+        elif name == "inspect":
+            # args: robot, location
+            if len(args) < 2:
+                return StepResult(step, False, "inspect needs 2 args")
+            _robot, location = args
+            return self._exec_inspect(step, location)
+
         else:
             msg = f"Unknown action {name!r} — no primitive registered"
             log.warning(f"[Executor] {msg}")
@@ -250,6 +258,12 @@ class PrimitiveExecutor:
 
         self._on_status("CHARGED")
         return StepResult(step, True, f"Recharged at {location}")
+
+    def _exec_inspect(self, step: PlanStep, location: str) -> StepResult:
+        self._on_status(f"INSPECTING@{location}")
+        print(f"Inspecting {location}...")
+        log.info(f"[Executor] Inspected {location}")
+        return StepResult(step, True, f"Inspected {location}")
 
     # ── Real cobot helper ─────────────────────────────────────────────────────
 
