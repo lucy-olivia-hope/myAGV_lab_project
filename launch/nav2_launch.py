@@ -20,6 +20,10 @@ def generate_launch_description():
     # On Galactic, bringup_launch.py's `map` launch argument does not
     # reliably propagate into map_server's `yaml_filename` param, so bake
     # the map path into the params file directly instead of relying on it.
+    #
+    # Keep lifecycle autostart disabled for the lab guide: students must set
+    # /map_server yaml_filename before configuring map_server, then send the
+    # initial pose only after AMCL is active.
     configured_params = RewrittenYaml(
         source_file=params_file,
         root_key="",
@@ -36,7 +40,7 @@ def generate_launch_description():
                 "map":          map_yaml_file,
                 "use_sim_time": "false",
                 "params_file":  configured_params,
-                "autostart":    "true",
+                "autostart":    "false",
             }.items(),
         ),
     ])
