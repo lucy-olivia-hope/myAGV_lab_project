@@ -336,7 +336,10 @@ class TestPhase4Domain:
 
     def test_domain_contains_required_predicates(self):
         from myagv_lab.phase4_delivery.pddl_planner.domain import DOMAIN_PDDL
-        for pred in ["at", "package-at", "holding", "arm-at", "delivered"]:
+        for pred in [
+            "at", "package-at", "holding", "arm-at", "delivery-at",
+            "cargo-empty", "delivered", "charged",
+        ]:
             assert pred in DOMAIN_PDDL
 
 
@@ -374,16 +377,48 @@ class TestPhase4Solver:
         last_nav  = nav_steps[-1]
         assert "home" in last_nav.args
 
+    def test_deliver_A_uses_the_documented_route(self):
+        plan = self._solve("deliver_A")
+        destinations = [
+            step.args[2] for step in plan if step.name == "navigate"
+        ]
+        assert destinations == ["loading_area", "delivery_area", "home"]
+
+        delivery = next(
+            step for step in plan if step.name == "deliver-package"
+        )
+        assert delivery.args[2] == "delivery_area"
+
     def test_deliver_AB_delivers_both_packages(self):
         plan  = self._solve("deliver_AB")
-        names = [s.name for s in plan]
-        # Two deliver-package actions expected
-        assert names.count("deliver-package") >= 1  # planner may linearise
+        load_steps = [s for s in plan if s.name == "load-package"]
+        delivery_steps = [s for s in plan if s.name == "deliver-package"]
+
+        assert len(load_steps) == 2
+        assert len(delivery_steps) == 2
+        assert {s.args[1] for s in delivery_steps} == {"package_a", "package_b"}
+        assert all(s.args[2] == "delivery_area" for s in delivery_steps)
+
+        first_delivery = plan.index(delivery_steps[0])
+        second_load = plan.index(load_steps[1])
+        assert first_delivery < second_load
 
     def test_recharge_scenario_contains_recharge(self):
         plan  = self._solve("recharge_then_deliver")
         names = [s.name for s in plan]
         assert "recharge" in names
+
+    def test_recharge_happens_before_loading_and_delivery(self):
+        plan = self._solve("recharge_then_deliver")
+        names = [s.name for s in plan]
+
+        assert names.index("recharge") < names.index("load-package")
+        assert names.index("load-package") < names.index("deliver-package")
+
+        delivery = next(
+            step for step in plan if step.name == "deliver-package"
+        )
+        assert delivery.args[2] == "delivery_area"
 
     def test_plan_step_parsing(self):
         from myagv_lab.phase4_delivery.pddl_planner.pddl_solver import PlanStep

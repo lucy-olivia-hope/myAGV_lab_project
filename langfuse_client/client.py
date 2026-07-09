@@ -30,11 +30,22 @@ import sys
 from pathlib import Path
 
 # Make sure the project root is importable regardless of where the script runs
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 from langfuse_client.students import validate_student_id
 
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL     = "deepseek-chat"
+
+
+def _load_project_env() -> None:
+    """Load the git-ignored project .env without overriding shell values."""
+    env_path = PROJECT_ROOT / ".env"
+    if not env_path.exists():
+        return
+
+    from dotenv import load_dotenv
+    load_dotenv(env_path, override=False)
 
 
 def get_llm_client(student_id: str = None) -> tuple:
@@ -59,6 +70,8 @@ def get_llm_client(student_id: str = None) -> tuple:
     ValueError
         If student_id is not in the registered roster.
     """
+    _load_project_env()
+
     # ── Resolve student ID ────────────────────────────────────────────────────
     if student_id is None:
         student_id = os.environ.get("STUDENT_ID", "").strip().lower()

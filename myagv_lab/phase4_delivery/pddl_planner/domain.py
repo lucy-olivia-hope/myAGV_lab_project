@@ -25,6 +25,8 @@ DOMAIN_PDDL = """\
     (package-at   ?p - package  ?l - location)  ;; package is at location
     (holding      ?r - robot    ?p - package)   ;; robot carries package
     (arm-at       ?a - arm      ?l - location)  ;; arm stationed at location
+    (delivery-at  ?p - package  ?l - location)  ;; required package destination
+    (cargo-empty  ?r - robot)                   ;; AGV can carry one package
     (delivered    ?p - package)                 ;; package has been delivered
     (charged      ?r - robot)                   ;; robot battery is full
     (charger-at   ?l - location)               ;; charger exists at location
@@ -52,9 +54,12 @@ DOMAIN_PDDL = """\
       (at ?r ?l)
       (arm-at ?a ?l)
       (package-at ?p ?l)
+      (cargo-empty ?r)
+      (charged ?r)
     )
     :effect (and
       (not (package-at ?p ?l))
+      (not (cargo-empty ?r))
       (holding ?r ?p)
     )
   )
@@ -65,10 +70,12 @@ DOMAIN_PDDL = """\
     :precondition (and
       (at ?r ?l)
       (holding ?r ?p)
+      (delivery-at ?p ?l)
     )
     :effect (and
       (not (holding ?r ?p))
       (package-at ?p ?l)
+      (cargo-empty ?r)
       (delivered ?p)
     )
   )
@@ -101,8 +108,8 @@ DOMAIN_PDDL = """\
 # Human-readable descriptions of each action (for the LLM system prompt)
 ACTION_DESCRIPTIONS = {
     "navigate":        "Move the AGV (agv1) from one location to another.",
-    "load-package":    "Have the cobot arm (cobot1) load a package onto the AGV at the loading_area.",
-    "deliver-package": "Have the AGV deposit the package it is carrying at a destination location.",
+    "load-package":    "Load one package at loading_area when the AGV is charged and its cargo platform is empty.",
+    "deliver-package": "Deposit a carried package only at the location declared by delivery-at.",
     "recharge":        "Charge the AGV at a charger_station location.",
     "inspect":         "Inspect a location after the AGV has navigated there.",
 }

@@ -59,16 +59,15 @@ SIM_WAYPOINTS: dict[str, Pose2D] = {
     "charger_station": Pose2D(7.0, 0.4,  math.radians(270)),
 }
 
-# TODO(lab): these are still the sim placeholders. Before running
-# named-waypoint navigation on the real robot, drive/carry the robot to
-# each location, read its pose off the "2D Pose Estimate"/TF display in
-# RViz2 (map frame, metres), and replace the values below.
+# Candidate real-lab poses selected from maps/lab_map.pgm. Each point is in
+# connected free space with at least 0.8 m map clearance. Confirm the physical
+# room labels and test each destination individually before a chained mission.
 REAL_WAYPOINTS: dict[str, Pose2D] = {
-    "home":            Pose2D(0.4, 0.6,  0.0),
-    "loading_area":    Pose2D(0.8, 0.4,  0.0),
-    "delivery_area":   Pose2D(2.0, 0.4,  math.radians(90)),
-    "storage_area":    Pose2D(5.0, 0.4,  math.radians(180)),
-    "charger_station": Pose2D(7.0, 0.4,  math.radians(270)),
+    "home":            Pose2D(-6.5,  -3.0, 0.0),
+    "loading_area":    Pose2D(-10.5, -3.0, 0.0),
+    "delivery_area":   Pose2D(-8.5,  -5.0, math.radians(90)),
+    "storage_area":    Pose2D(-9.0,  -4.0, math.radians(180)),
+    "charger_station": Pose2D(-8.0,  -3.0, 0.0),
 }
 
 WAYPOINTS: dict[str, Pose2D] = SIM_WAYPOINTS if USE_SIM else REAL_WAYPOINTS

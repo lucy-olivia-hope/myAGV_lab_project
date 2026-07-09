@@ -67,7 +67,14 @@ problem file.  Rules:
      - agv1 starts at home unless stated otherwise.
      - cobot1 is always at loading_area.
      - charger_station has a charger (charger-at charger_station).
+     - Include (cargo-empty agv1).
+     - Include (charged agv1) unless the task explicitly requires charging
+       before delivery.
+     - For every package, include both its starting (package-at ...) fact
+       and its required (delivery-at ...) destination.
   4. Goal: capture exactly what the user wants to be TRUE at the end.
+     - A delivery task should require (delivered package_X).
+     - Include (at agv1 home) when the user asks the robot to return home.
   5. Packages are named package_A, package_B, etc.
   6. Do NOT include markdown fences, explanations, or any text other
      than the raw PDDL.
@@ -159,6 +166,9 @@ _FALLBACK_PROBLEMS: dict[str, str] = {
     (at         agv1   home)
     (arm-at     cobot1 loading_area)
     (package-at package_A loading_area)
+    (delivery-at package_A delivery_area)
+    (cargo-empty agv1)
+    (charged     agv1)
   )
   (:goal (and
     (delivered  package_A)
@@ -182,6 +192,10 @@ _FALLBACK_PROBLEMS: dict[str, str] = {
     (arm-at     cobot1 loading_area)
     (package-at package_A loading_area)
     (package-at package_B loading_area)
+    (delivery-at package_A delivery_area)
+    (delivery-at package_B delivery_area)
+    (cargo-empty agv1)
+    (charged     agv1)
   )
   (:goal (and
     (delivered  package_A)
@@ -205,6 +219,8 @@ _FALLBACK_PROBLEMS: dict[str, str] = {
     (at           agv1   home)
     (arm-at       cobot1 loading_area)
     (package-at   package_A loading_area)
+    (delivery-at  package_A delivery_area)
+    (cargo-empty  agv1)
     (charger-at   charger_station)
   )
   (:goal (and

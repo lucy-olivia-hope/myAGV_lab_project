@@ -24,6 +24,7 @@ setup(
         "openai",
         "langfuse>=2.0",
         "matplotlib",
+        "python-dotenv>=1.0",
     ],
     entry_points={
         "console_scripts": [
